@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f6f5f0" />
+    <title>小小专注钟</title>
+    <style>
+      :root {
+        font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+        color: #26312d;
+        background: #f6f5f0;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+
+      main {
+        width: min(100%, 460px);
+        padding: 34px 30px 28px;
+        border: 1px solid #e5e4dc;
+        border-radius: 26px;
+        background: #fff;
+        box-shadow: 0 16px 45px #26312d12;
+        text-align: center;
+      }
+
+      h1 { margin: 0 0 8px; font-size: 27px; }
+      .subtitle { margin: 0 0 26px; color: #64716a; }
+
+      .modes {
+        display: flex;
+        gap: 8px;
+        padding: 5px;
+        border-radius: 14px;
+        background: #f0f2ed;
+      }
+
+      button {
+        font: inherit;
+        cursor: pointer;
+      }
+
+      .mode {
+        flex: 1;
+        min-height: 42px;
+        border: 0;
+        border-radius: 10px;
+        color: #526058;
+        background: transparent;
+      }
+
+      .mode[aria-pressed="true"] {
+        color: #1e5945;
+        background: #fff;
+        box-shadow: 0 2px 7px #26312d12;
+        font-weight: 700;
+      }
+
+      .clock {
+        width: 250px;
+        height: 250px;
+        margin: 30px auto;
+        padding: 12px;
+        border-radius: 50%;
+        background: conic-gradient(#277658 0%, #e8eee9 0%);
+      }
+
+      .clock-inner {
+        width: 100%;
+        height: 100%;
+        display: grid;
+        place-content: center;
+        border-radius: 50%;
+        background: #fff;
+      }
+
+      #time {
+        font-size: 60px;
+        font-weight: 750;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -3px;
+      }
+
+      #state { color: #64716a; }
+
+      .actions { display: flex; justify-content: center; gap: 10px; }
+      .actions button {
+        min-width: 120px;
+        min-height: 46px;
+        border-radius: 12px;
+        font-weight: 650;
+      }
+
+      #toggle {
+        border: 1px solid #277658;
+        color: #fff;
+        background: #277658;
+      }
+
+      #reset {
+        border: 1px solid #d7ded8;
+        color: #32423a;
+        background: #fff;
+      }
+
+      button:focus-visible { outline: 3px solid #a5d7bb; outline-offset: 3px; }
+      .note { margin: 26px 0 0; color: #78847d; font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>小小专注钟</h1>
+      <p class="subtitle">专注一会儿，再休息一下。</p>
+
+      <div class="modes" aria-label="计时模式">
+        <button class="mode" data-mode="focus" aria-pressed="true">专注 · 25 分钟</button>
+        <button class="mode" data-mode="break" aria-pressed="false">休息 · 5 分钟</button>
+      </div>
+
+      <div class="clock" id="clock">
+        <div class="clock-inner">
+          <div id="time" role="timer" aria-label="剩余时间">25:00</div>
+          <div id="state" aria-live="polite">准备开始</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="toggle">开始</button>
+        <button id="reset">重置</button>
+      </div>
+
+      <p class="note">无需账号或网络，直接在浏览器中使用。</p>
+    </main>
+
+    <script>
+      const durations = { focus: 25 * 60, break: 5 * 60 };
+      const modes = document.querySelectorAll(".mode");
+      const time = document.querySelector("#time");
+      const state = document.querySelector("#state");
+      const clock = document.querySelector("#clock");
+      const toggle = document.querySelector("#toggle");
+      const reset = document.querySelector("#reset");
+
+      let mode = "focus";
+      let remaining = durations[mode];
+      let endAt = null;
+      let interval = null;
+
+      function render() {
+        const minutes = Math.floor(remaining / 60);
+        const seconds = remaining % 60;
+        const display = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+        const progress = (1 - remaining / durations[mode]) * 100;
+        time.textContent = display;
+        clock.style.background = `conic-gradient(#277658 ${progress}%, #e8eee9 ${progress}%)`;
+        document.title = `${display} · 小小专注钟`;
+      }
+
+      function pause() {
+        if (endAt !== null) remaining = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
+        clearInterval(interval);
+        interval = null;
+        endAt = null;
+        toggle.textContent = "继续";
+        state.textContent = "已暂停";
+        render();
+      }
+
+      function tick() {
+        remaining = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
+        render();
+        if (remaining === 0) {
+          clearInterval(interval);
+          interval = null;
+          endAt = null;
+          toggle.textContent = "再来一次";
+          state.textContent = mode === "focus" ? "专注完成，休息一下！" : "休息结束，继续加油！";
+        }
+      }
+
+      toggle.addEventListener("click", () => {
+        if (endAt !== null) return pause();
+        if (remaining === 0) remaining = durations[mode];
+        endAt = Date.now() + remaining * 1000;
+        interval = setInterval(tick, 250);
+        toggle.textContent = "暂停";
+        state.textContent = mode === "focus" ? "专注中" : "休息中";
+        tick();
+      });
+
+      reset.addEventListener("click", () => {
+        clearInterval(interval);
+        interval = null;
+        endAt = null;
+        remaining = durations[mode];
+        toggle.textContent = "开始";
+        state.textContent = "准备开始";
+        render();
+      });
+
+      modes.forEach((button) => button.addEventListener("click", () => {
+        clearInterval(interval);
+        interval = null;
+        endAt = null;
+        mode = button.dataset.mode;
+        remaining = durations[mode];
+        modes.forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+        toggle.textContent = "开始";
+        state.textContent = "准备开始";
+        render();
+      }));
+
+      render();
+    </script>
+  </body>
+</html>
